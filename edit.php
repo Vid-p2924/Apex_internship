@@ -1,15 +1,34 @@
 <?php
     require 'includes/auth.php';
-    
+
+    if ($_SESSION['role'] !== 'admin' && $_SESSION['role'] !== 'editor') {
+        ?>
+        <!DOCTYPE html>
+        <html>
+            <head>
+                <title>Access Denied</title>
+                <link rel="stylesheet" type="text/css" href="css/style.css">
+            </head>
+            <body>
+                <div class="container">
+                    <p class="message">Access Denied. You do not have permission to edit posts.</p>
+                    <a href="index.php" class="back-link">Back to Posts</a>
+                </div>
+            </body>
+        </html>
+        <?php
+        exit;
+    }
+
     $message = '';
     $id = $_GET['id'] ?? null;
 
-    if (! $id) {
+    if (!$id) {
         header("Location: index.php");
         exit;
     }
 
-    $stmt = $conn->prepare("SELECT * FROM  posts WHERE id = :id");
+    $stmt = $conn->prepare("SELECT * FROM posts WHERE id = :id");
     $stmt->bindParam(':id', $id);
     $stmt->execute();
     $post = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -20,11 +39,18 @@
     }
 
     if ($_SERVER["REQUEST_METHOD"] == "POST") {
-        if(!empty($_POST['title']) && !empty($_POST['content'])) {
+        $title = trim($_POST['title']);
+        $content = trim($_POST['content']);
+
+        if (empty($title) || empty($content)) {
+            $message = 'Please fill in all fields.';
+        } elseif (strlen($title) > 255) {
+            $message = 'Title cannot be longer than 255 characters.';
+        } else {
             $sql = "UPDATE posts SET title = :title, content = :content WHERE id = :id";
             $stmt = $conn->prepare($sql);
-            $stmt->bindParam(':title', $_POST['title']);
-            $stmt->bindParam(':content', $_POST['content']);
+            $stmt->bindParam(':title', $title);
+            $stmt->bindParam(':content', $content);
             $stmt->bindParam(':id', $id);
 
             if ($stmt->execute()) {
@@ -33,11 +59,11 @@
             } else {
                 $message = 'Error updating post.';
             }
-        }   else {
-            $message = 'Please fill in all fields.';
         }
     }
 ?>
+
+
 
 <!DOCTYPE html>
 <html>

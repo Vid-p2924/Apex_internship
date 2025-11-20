@@ -1,36 +1,52 @@
 <?php
-    require 'includes/db.php';
-    $messages = '';
+require 'includes/db.php';
 
-    if($_SERVER["REQUEST_METHOD"] == "POST"){
-        if(!empty($_POST['username'] && !empty($_POST['password']))){
-            $username = $_POST['username'];
-            $password = password_hash($_POST['password'], PASSWORD_DEFAULT);
+$message = '';
 
-            try{
-                $sql = "INSERT INTO users(username, password) VALUES (:username, :password)";
-                $stmt = $conn->prepare($sql);
-                $stmt->bindParam(':username', $username);
-                $stmt->bindParam(':password', $password);
+if ($_SERVER["REQUEST_METHOD"] == "POST") {
+    $username = trim($_POST['username']);
+    $password_raw = trim($_POST['password']);
 
-                if ($stmt->execute()) {
-                    $message = 'Successfully created new user';
-                } else {
-                    $message = 'Sorry, there must have been an issue creating your account';
-                }
-            } catch (PDOException $e) {
-                if ($e->errorInfo[1] == 1062) {
-                    $message = 'That username is already taken.';
-                } else {
-                    $message = 'An error occurred: ' . $e->getMessage();
-                }
+    if (empty($username) || empty($password_raw)) {
+        $message = 'Please fill out all fields.';
+    } elseif (strlen($username) > 50) {
+        $message = 'Username cannot be longer than 50 characters.';
+    } elseif (strlen($password_raw) < 6) {
+        $message = 'Password must be at least 6 characters long.';
+    } else {
+        $password = password_hash($password_raw, PASSWORD_DEFAULT);
+
+        try {
+            $sql_count = "SELECT COUNT(*) FROM users";
+            $count_stmt = $conn->query($sql_count);
+            $user_count = $count_stmt->fetchColumn();
+
+            $role = ($user_count == 0) ? 'admin' : 'editor';
+            //$role = 'editor';
+            $sql = "INSERT INTO users (username, password, role) VALUES (:username, :password, :role)";
+            $stmt = $conn->prepare($sql);
+            $stmt->bindParam(':username', $username);
+            $stmt->bindParam(':password', $password);
+            $stmt->bindParam(':role', $role);
+
+            if ($stmt->execute()) {
+                $message = 'Successfully created new user.';
+            } else {
+                $message = 'Sorry, there was an issue creating your account.';
             }
-        } else {
-            $message = 'Please fill out all fields.';
+
+        } catch (PDOException $e) {
+            if ($e->errorInfo[1] == 1062) {
+                $message = 'That username is already taken.';
+            } else {
+                $message = 'An error occurred: ' . $e->getMessage();
+            }
         }
     }
-
+}
 ?>
+
+
 
 <!DOCTYPE html>
 <html>
